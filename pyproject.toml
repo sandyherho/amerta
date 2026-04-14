@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "amerta"
+version = "0.0.1"
+description = "1D Saint-Venant (shallow water) equations solver: MUSCL-HLLC + SSP-RK2"
+authors = [
+    "Dasapta E. Irawan",
+    "Sandy H. S. Herho",
+    "Iwan P. Anwar",
+    "Faruq Khadami",
+    "Astyka Pamumpuni",
+    "Rendy D. Kartiko",
+    "Edi Riawan",
+    "Rusmawan Suwarman",
+    "Deny J. Puradimaja"
+]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "amerta_sv", from = "src"}]
+keywords = ["shallow-water", "saint-venant", "dam-break", "hllc", "muscl", "ssp-rk2", "computational-hydraulics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Hydrology"
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = ">=1.20.0"
+scipy = ">=1.7.0"
+matplotlib = ">=3.3.0"
+netCDF4 = ">=1.5.0"
+tqdm = ">=4.60.0"
+numba = ">=0.53.0"
+pandas = ">=1.3.0"
+pillow = ">=8.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0.0"
+pytest-cov = ">=3.0.0"
+
+[tool.poetry.scripts]
+amerta = "amerta_sv.cli:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

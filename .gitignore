@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+.vscode/
+.idea/
+.DS_Store
+outputs/
+logs/
+poetry.lock
+*.tar.gz
+*.whl
+!.assets/*.gif
