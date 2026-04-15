@@ -1,16 +1,39 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
 build/
 dist/
 *.egg-info/
-.venv/
+*.egg
+
+# Environments
+.env
+.venv
+env/
 venv/
+
+# IDEs
 .vscode/
 .idea/
+*.swp
+
+# OS
 .DS_Store
+
+# Project outputs
 outputs/
 logs/
 poetry.lock
-*.tar.gz
-*.whl
+
+# Numba cache
+__numba_cache__/
+
+# Test outputs
+test_outputs/
+
+# Asset exception
 !.assets/*.gif
