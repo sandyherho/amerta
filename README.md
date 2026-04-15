@@ -15,7 +15,11 @@
 [![Pillow](https://img.shields.io/badge/Pillow-%23000000.svg)](https://python-pillow.org/)
 [![tqdm](https://img.shields.io/badge/tqdm-%23FFC107.svg)](https://tqdm.github.io/)
 
-![Animation](.assets/case1_stoker_wet_dam_break.gif)
+
+<p align="center">
+  <img src="https://github.com/sandyherho/amerta/blob/main/.assets/case_1_stoker_wet_dam_break.gif" alt="damBreak" width="800">
+</p>
+
 
 ## Model
 
