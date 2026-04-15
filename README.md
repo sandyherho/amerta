@@ -119,19 +119,6 @@ $$\Delta t = \nu \cdot \frac{\Delta x}{\max_i (|u_i| + \sqrt{g h_i})}$$
 | **Mass balance** | $\int h\, dx$ | Conservation check (closed BC) |
 | **CFL actual** | $\nu_{\text{act}} = (\lvert u \rvert + c)\, \Delta t / \Delta x$ | Stability monitor |
 
-## Analytical Validation
-
-All four cases are validated against exact Riemann solutions:
-
-| Case | Target | Analytical | Numerical | Error |
-|:---:|:-------|:----------:|:---------:|:-----:|
-| 1 Stoker | plateau $h_\star$ | 1.1035 m | 1.1031 m | **0.04 %** |
-| 1 Stoker | plateau $u_\star$ | 2.2785 m/s | 2.2785 m/s | **0.002 %** |
-| 2 Ritter | $h(\text{dam}) = 4 h_L / 9$ | 0.4444 m | 0.4552 m | **2.4 %** |
-| 3 Double rarefaction | center $h_\star$ | 0.0407 m | 0.0393 m | **3.4 %** |
-| 4 Double shock | plateau $h_\star$ | 2.9511 m | 2.9461 m | **0.17 %** |
-
-Symmetric cases 3 and 4 preserve spatial symmetry to machine precision ($10^{-15}$).
 
 ## Installation
 
