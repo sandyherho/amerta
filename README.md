@@ -15,11 +15,7 @@
 [![Pillow](https://img.shields.io/badge/Pillow-%23000000.svg)](https://python-pillow.org/)
 [![tqdm](https://img.shields.io/badge/tqdm-%23FFC107.svg)](https://tqdm.github.io/)
 
-*Named after **tirta amerta**, the sacred "water of immortality" churned from the cosmic ocean in Hindu–Javanese mythology*
-
-A Python library for simulating the one-dimensional idealized dam-break problem using the Saint-Venant (shallow water) equations, with Numba JIT acceleration and four canonical Riemann test cases validated against analytical solutions.
-
-![Animation](https://raw.githubusercontent.com/sandyherho/amerta/main/.assets/case1_stoker_wet_dam_break.gif)
+![Animation](.assets/case1_stoker_wet_dam_break.gif)
 
 ## Model
 
@@ -229,17 +225,9 @@ The library generates, for each case:
 - **Pillow** >= 8.0.0
 - **tqdm** >= 4.60.0
 
-## References
-
-- Stoker, J. J. (1957). *Water Waves: The Mathematical Theory with Applications*. Interscience.
-- Ritter, A. (1892). Die Fortpflanzung der Wasserwellen. *Zeitschrift des Vereines Deutscher Ingenieure*, 36(33), 947–954.
-- Toro, E. F. (2001). *Shock-Capturing Methods for Free-Surface Shallow Flows*. Wiley.
-- Shu, C.-W., & Osher, S. (1988). Efficient implementation of essentially non-oscillatory shock-capturing schemes. *Journal of Computational Physics*, 77(2), 439–471.
-- Harten, A., Lax, P. D., & van Leer, B. (1983). On upstream differencing and Godunov-type schemes for hyperbolic conservation laws. *SIAM Review*, 25(1), 35–61.
-
 ## License
 
-MIT 2026 © Dasapta E. Irawan, [Sandy H. S. Herho](mailto:sandy.herho@email.ucr.edu), [Iwan P. Anwar](mailto:iwanpanwar@itb.ac.id), [Faruq Khadami](mailto:fkhadami@itb.ac.id), Astyka Pamumpuni, Rendy D. Kartiko, Edi Riawan, [Rusmawan Suwarman](mailto:rusmawan@itb.ac.id), and Deny J. Puradimaja
+MIT 2026 © Dasapta E. Irawan, Sandy H. S. Herho, Iwan P. Anwar, Faruq Khadami, Astyka Pamumpuni, Rendy D. Kartiko, Edi Riawan, Rusmawan Suwarman, and Deny J. Puradimaja
 
 ## Citation
 
