@@ -1,17 +1,17 @@
 # Case 2: Ritter (1892) dry-bed dam break
-# Single rarefaction into (near-)dry bed
+# Physical scenario: flash flood onto dry coastal plain (Maritime Continent)
+# hL=10m (embankment reservoir), near-dry downstream, L=2000m, t=40s
 scenario_name = Case 2 - Ritter Dry Dam Break
 case_type = ritter
 g = 9.81
-L = 100.0
-h_left = 1.0
-h_right = 1e-6
+L = 2000.0
+h_left = 10.0
+h_right = 1e-3
 u_left = 0.0
 u_right = 0.0
-nx = 400
+nx = 500
 cfl = 0.9
-t_final = 4.0
-n_snaps = 5
+t_final = 40.0
 anim_frames = 80
 anim_fps = 15
 nthreads = 0

@@ -41,8 +41,14 @@ class Animator:
     def fig_time_evolution(result, filename, output_dir, scenario_name, dpi=150):
         out = Path(output_dir); out.mkdir(parents=True, exist_ok=True)
         fp = out / filename
-        x = result['x']; t = result['snap_times']
-        h = result['h_snaps']; u = result['u_snaps']; q = result['q_snaps']
+        x = result['x']
+        # subsample 5 evenly-spaced frames from the full trajectory
+        n_snaps = 5
+        all_idx = np.round(np.linspace(0, len(result['t_all'])-1, n_snaps)).astype(int)
+        t = result['t_all'][all_idx]
+        h = result['h_all'][all_idx]
+        u = result['u_all'][all_idx]
+        q = result['q_all'][all_idx]
         fig, axes = plt.subplots(3, 1, figsize=(10, 9), facecolor=BG, sharex=True)
         cmap = plt.get_cmap('viridis')
         for i in range(len(t)):
@@ -111,7 +117,8 @@ class Animator:
                       color=[WAVE, ACCENT], edgecolor=EDGE)
         axes[1,1].set_ylabel('|mass error| [%]')
         axes[1,1].set_title('Conservation diagnostics', color=LIGHT)
-        axes[1,1].set_yscale('log')
+        if abs(result['mass_err_pct']) > 0 or result['max_mass_err'] > 0:
+            axes[1,1].set_yscale('log')
         for ax in axes.flat: _style_axes(ax)
         fig.suptitle(f'{scenario_name}: Numerical Aspects', color=LIGHT, fontweight='bold', fontsize=13)
         plt.tight_layout()

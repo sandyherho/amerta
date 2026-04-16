@@ -119,6 +119,17 @@ $$\Delta t = \nu \cdot \frac{\Delta x}{\max_i (|u_i| + \sqrt{g h_i})}$$
 | **Mass balance** | $\int h\, dx$ | Conservation check (closed BC) |
 | **CFL actual** | $\nu_{\text{act}} = (\lvert u \rvert + c)\, \Delta t / \Delta x$ | Stability monitor |
 
+### Analytical Solutions (v0.0.2)
+
+Exact solutions are available for all four canonical cases and are computed automatically alongside every simulation run. They are written directly into the NetCDF output for post-processing and convergence analysis.
+
+| Case | Method | Reference |
+|:----:|:-------|:----------|
+| Ritter | Closed-form similarity solution | Ritter (1892) |
+| Stoker | Newton iteration on $h_\star$ (Brent) | Stoker (1957) |
+| Double Rarefaction | Closed-form symmetric fan solution | Toro (2001) |
+| Double Shock | Newton iteration on $h_\star$ (Brent) | Toro (2001) |
+
 
 ## Installation
 
@@ -156,7 +167,8 @@ amerta case1 --nthreads 8        # Use 8 threads
 **Python API:**
 ```python
 from amerta_sv import SaintVenantSolver, get_case
-from amerta_sv.io import ConfigManager
+from amerta_sv.io import ConfigManager, DataHandler
+from amerta_sv.core.analytical import compute_analytical, fill_error_norms
 
 # Load preset and override grid resolution
 cfg = ConfigManager.validate_config({
@@ -170,10 +182,18 @@ cfg = ConfigManager.validate_config({
 solver = SaintVenantSolver(nthreads=8, verbose=True)
 result = solver.solve(cfg)
 
-print(f"Steps: {result['n_steps']}")
-print(f"CFL max: {result['cfl_max']:.4f}")
-print(f"Mass error: {result['mass_err_pct']:+.3e} %")
-print(f"Final h range: [{result['h_final'].min():.4f}, {result['h_final'].max():.4f}] m")
+# Compute analytical solution and error norms
+an_snap = compute_analytical('stoker', cfg, result['x'], result['snap_times'])
+fill_error_norms(an_snap, result['h_snaps'], result['u_snaps'], result['dx'])
+
+print(f"L1(h) at t_final = {an_snap['l1_h'][-1]:.4e} m")
+print(f"L2(h) at t_final = {an_snap['l2_h'][-1]:.4e} m")
+
+# Save (analytical fields written automatically into NetCDF)
+an_anim = compute_analytical('stoker', cfg, result['x'], result['anim_times'])
+fill_error_norms(an_anim, result['anim_h'], result['anim_u'], result['dx'])
+DataHandler.save_netcdf('stoker.nc', result, 'outputs',
+                        analytical_snap=an_snap, analytical_anim=an_anim)
 ```
 
 ## Features
@@ -184,6 +204,9 @@ print(f"Final h range: [{result['h_final'].min():.4f}, {result['h_final'].max():
 - **Adaptive CFL-limited time step** with positivity preservation
 - **Numba JIT** acceleration with parallel `prange` sweeps (user-selectable thread count)
 - **Four canonical Riemann test cases** validated against analytical solutions
+- **Exact analytical solutions** for all four cases, auto-computed and saved to NetCDF
+- **L1/L2 error norms** at every snapshot and animation frame, ready for convergence studies
+- **Full time trajectory** (all animation frames) written to NetCDF, not just snapshots
 - **CF-1.8 compliant NetCDF4** output with full trajectory data
 - **Dark-themed publication figures** (time evolution, physical interpretation, numerical aspects)
 - **Animated GIF** with red-dashed dam reference and real-time counter
@@ -197,7 +220,13 @@ The library generates, for each case:
 - **CSV files**:
   - `<case>_metrics.csv` — single-run diagnostics (steps, CFL, mass error, etc.)
   - `comparison_metrics.csv` — appended across all runs for side-by-side comparison
-- **NetCDF**: `<case>.nc` — CF-1.8 with $h(t,x)$, $u(t,x)$, $q(t,x)$ and all simulation attributes
+- **NetCDF**: `<case>.nc` — CF-1.8 with dimensions `(time × x)` and `(anim_time × x)`, containing:
+  - `h`, `u`, `q` — numerical solution at snapshot times
+  - `h_anim`, `u_anim`, `q_anim` — full time trajectory at every animation frame
+  - `h_analytical`, `u_analytical` — exact solution at snapshot times (when available)
+  - `h_error`, `u_error` — pointwise numerical minus analytical error fields
+  - `l1_h`, `l2_h`, `l1_u`, `l2_u` — integrated error norms at each snapshot
+  - `*_anim` variants of all analytical/error fields along the full trajectory
 - **PNG**:
   - `<case>_time_evolution.png` — snapshot overlay at saved times
   - `<case>_physical.png` — depth, velocity, Froude, specific energy
@@ -216,6 +245,17 @@ The library generates, for each case:
 - **Pillow** >= 8.0.0
 - **tqdm** >= 4.60.0
 
+## Changelog
+
+### v0.0.2
+- Added `analytical.py`: exact solutions for all four canonical Riemann cases (Ritter closed-form, Stoker Newton, double rarefaction closed-form, double shock Newton)
+- NetCDF output now stores the full animation-frame trajectory (`h_anim`, `u_anim`, `q_anim`) in addition to snapshots
+- Analytical fields (`h_analytical`, `u_analytical`), error fields (`h_error`, `u_error`), and integrated L1/L2 norms written to NetCDF at both snapshot and animation-frame time axes
+- Extended test suite with `TestAnalytical` class covering shape, norm finiteness, and IC correctness
+
+### v0.0.1
+- Initial release
+
 ## License
 
 MIT 2026 © Dasapta E. Irawan, Sandy H. S. Herho, Iwan P. Anwar, Faruq Khadami, Astyka Pamumpuni, Rendy D. Kartiko, Edi Riawan, Rusmawan Suwarman, and Deny J. Puradimaja
@@ -229,7 +269,7 @@ MIT 2026 © Dasapta E. Irawan, Sandy H. S. Herho, Iwan P. Anwar, Faruq Khadami, 
              Khadami, Faruq and Pamumpuni, Astyka and Kartiko, Rendy D. and
              Riawan, Edi and Suwarman, Rusmawan and Puradimaja, Deny J.},
   year    = {2026},
-  version = {0.0.1},
+  version = {0.0.2},
   url     = {https://github.com/sandyherho/amerta}
 }
 ```

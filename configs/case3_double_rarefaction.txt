@@ -1,17 +1,17 @@
 # Case 3: Symmetric double rarefaction
-# Diverging flow; near-dry formation at center
+# Physical scenario: sluice gate opening in irrigation canal (diverging flow)
+# hL=hR=5m, uL=-3m/s, uR=+3m/s (diverging), L=2000m, t=80s
 scenario_name = Case 3 - Double Rarefaction
 case_type = double_rarefaction
 g = 9.81
-L = 100.0
-h_left = 1.0
-h_right = 1.0
-u_left = -5.0
-u_right = 5.0
-nx = 2000
+L = 2000.0
+h_left = 5.0
+h_right = 5.0
+u_left = -3.0
+u_right = 3.0
+nx = 1000
 cfl = 0.9
-t_final = 2.5
-n_snaps = 5
+t_final = 80.0
 anim_frames = 80
 anim_fps = 15
 nthreads = 0

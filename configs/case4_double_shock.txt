@@ -1,17 +1,17 @@
 # Case 4: Symmetric double shock
-# Converging flow; shock collision
+# Physical scenario: two converging flood waves at river confluence
+# hL=hR=3m, uL=+3m/s, uR=-3m/s (converging), L=2000m, t=80s
 scenario_name = Case 4 - Double Shock
 case_type = double_shock
 g = 9.81
-L = 100.0
-h_left = 1.0
-h_right = 1.0
-u_left = 5.0
-u_right = -5.0
-nx = 400
+L = 2000.0
+h_left = 3.0
+h_right = 3.0
+u_left = 3.0
+u_right = -3.0
+nx = 500
 cfl = 0.9
-t_final = 2.0
-n_snaps = 5
+t_final = 80.0
 anim_frames = 80
 anim_fps = 15
 nthreads = 0
