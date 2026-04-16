@@ -4,6 +4,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/amerta.svg)](https://pypi.org/project/amerta/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 [![DOI](https://zenodo.org/badge/1210460312.svg)](https://doi.org/10.5281/zenodo.19596023)
 
 [![NumPy](https://img.shields.io/badge/NumPy-%23013243.svg?logo=numpy&logoColor=white)](https://numpy.org/)
