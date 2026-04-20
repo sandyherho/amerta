@@ -4,7 +4,7 @@ amerta: 1D Saint-Venant (shallow water) equations solver.
 Numerical method: MUSCL (minmod) reconstruction + HLLC Riemann solver
                   + SSP-RK2 (Heun) time integration.
 """
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 __author__ = "Dasapta E. Irawan, Sandy H. S. Herho, Iwan P. Anwar, Faruq Khadami, Astyka Pamumpuni, Rendy D. Kartiko, Edi Riawan, Rusmawan Suwarman, Deny J. Puradimaja"
 __license__ = "MIT"
 

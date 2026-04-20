@@ -118,7 +118,7 @@ $$\Delta t = \nu \cdot \frac{\Delta x}{\max_i (|u_i| + \sqrt{g h_i})}$$
 | **Mass balance** | $\int h\, dx$ | Conservation check (closed BC) |
 | **CFL actual** | $\nu_{\text{act}} = (\lvert u \rvert + c)\, \Delta t / \Delta x$ | Stability monitor |
 
-### Analytical Solutions (v0.0.2)
+### Analytical Solutions
 
 Exact solutions are available for all four canonical cases and are computed automatically alongside every simulation run. They are written directly into the NetCDF output for post-processing and convergence analysis.
 
@@ -128,6 +128,8 @@ Exact solutions are available for all four canonical cases and are computed auto
 | Stoker | Newton iteration on $h_\star$ (Brent) | Stoker (1957) |
 | Double Rarefaction | Closed-form symmetric fan solution | Toro (2001) |
 | Double Shock | Newton iteration on $h_\star$ (Brent) | Toro (2001) |
+
+**Note on the Ritter near-dry-bed case:** The exact Ritter solution assumes $h_R = 0$ exactly. The simulation uses $h_R = 10^{-3}$ m as a near-dry approximation to avoid division by zero. As of v0.0.3 the analytical initial condition at $t = 0$ uses $h_R$ from the config rather than zero, so $L_1(h)|_{t=0} = 0$ exactly. For $t > 0$ the analytical solution correctly applies the dry-front formula ($h = 0$ ahead of the wave).
 
 
 ## Installation
@@ -182,17 +184,14 @@ solver = SaintVenantSolver(nthreads=8, verbose=True)
 result = solver.solve(cfg)
 
 # Compute analytical solution and error norms
-an_snap = compute_analytical('stoker', cfg, result['x'], result['snap_times'])
-fill_error_norms(an_snap, result['h_snaps'], result['u_snaps'], result['dx'])
+an = compute_analytical('stoker', cfg, result['x'], result['t_all'])
+fill_error_norms(an, result['h_all'], result['u_all'], result['dx'])
 
-print(f"L1(h) at t_final = {an_snap['l1_h'][-1]:.4e} m")
-print(f"L2(h) at t_final = {an_snap['l2_h'][-1]:.4e} m")
+print(f"L1(h) at t_final = {an['l1_h'][-1]:.4e} m")
+print(f"L2(h) at t_final = {an['l2_h'][-1]:.4e} m")
 
-# Save (analytical fields written automatically into NetCDF)
-an_anim = compute_analytical('stoker', cfg, result['x'], result['anim_times'])
-fill_error_norms(an_anim, result['anim_h'], result['anim_u'], result['dx'])
-DataHandler.save_netcdf('stoker.nc', result, 'outputs',
-                        analytical_snap=an_snap, analytical_anim=an_anim)
+# Save to NetCDF
+DataHandler.save_netcdf('stoker.nc', result, 'outputs', analytical=an)
 ```
 
 ## Features
@@ -219,13 +218,11 @@ The library generates, for each case:
 - **CSV files**:
   - `<case>_metrics.csv` — single-run diagnostics (steps, CFL, mass error, etc.)
   - `comparison_metrics.csv` — appended across all runs for side-by-side comparison
-- **NetCDF**: `<case>.nc` — CF-1.8 with dimensions `(time × x)` and `(anim_time × x)`, containing:
-  - `h`, `u`, `q` — numerical solution at snapshot times
-  - `h_anim`, `u_anim`, `q_anim` — full time trajectory at every animation frame
-  - `h_analytical`, `u_analytical` — exact solution at snapshot times (when available)
+- **NetCDF**: `<case>.nc` — CF-1.8 with dimensions `(time × x)`, containing:
+  - `h`, `u`, `q` — full numerical trajectory at every solver timestep
+  - `h_analytical`, `u_analytical` — exact solution at every timestep (when available)
   - `h_error`, `u_error` — pointwise numerical minus analytical error fields
-  - `l1_h`, `l2_h`, `l1_u`, `l2_u` — integrated error norms at each snapshot
-  - `*_anim` variants of all analytical/error fields along the full trajectory
+  - `l1_h`, `l2_h`, `l1_u`, `l2_u` — integrated error norms at each timestep
 - **PNG**:
   - `<case>_time_evolution.png` — snapshot overlay at saved times
   - `<case>_physical.png` — depth, velocity, Froude, specific energy
@@ -245,6 +242,26 @@ The library generates, for each case:
 - **tqdm** >= 4.60.0
 
 ## Changelog
+
+### v0.0.3
+- **Bug fix (`solver.py`)**: `u_all[0]` and `anim_u[0]` now correctly store the actual
+  initial velocity field `u0` instead of `np.zeros(nx)`. Previously, all cases with
+  nonzero initial velocities (double rarefaction: $u_L=-3$, $u_R=+3$; double shock:
+  $u_L=+3$, $u_R=-3$) produced a spurious $L_1(u)|_{t=0} \approx 6000\ \text{m}^2/\text{s}$,
+  contaminating the entire error-norm time series and the NetCDF `u` field at `t=0`.
+- **Bug fix (`analytical.py`)**: `_ritter_at_t` now accepts `h_right` and uses it on the
+  right side of the dam at $t=0$, so the analytical initial condition exactly matches the
+  numerical IC. Previously $L_1(h)|_{t=0} \approx 1.0\ \text{m}$ for the Ritter case
+  because the analytical IC had $h_R = 0$ while the config used $h_R = 10^{-3}\ \text{m}$.
+  The `_DISPATCH` table is updated accordingly. For $t > 0$ the exact dry-front formula
+  ($h = 0$ ahead of the wave) is unchanged.
+- **New tests**: `TestSolver.test_ic_velocity_stored_correctly_nonzero`,
+  `test_ic_velocity_double_shock`, `test_anim_u_ic_nonzero`,
+  `TestAnalytical.test_ritter_ic_h_exact`, `test_double_rarefaction_ic_u_exact`,
+  `test_double_shock_ic_u_exact`, `TestNetCDF.test_netcdf_u_ic_correct` — all
+  specifically target the above bugs and would have caught them in v0.0.2.
+- Version string updated to `0.0.3` in `__init__.py`, `cli.py`, `data_handler.py`,
+  `pyproject.toml`.
 
 ### v0.0.2
 - Added `analytical.py`: exact solutions for all four canonical Riemann cases (Ritter closed-form, Stoker Newton, double rarefaction closed-form, double shock Newton)
@@ -268,7 +285,7 @@ MIT 2026 © Dasapta E. Irawan, Sandy H. S. Herho, Iwan P. Anwar, Faruq Khadami, 
              Khadami, Faruq and Pamumpuni, Astyka and Kartiko, Rendy D. and
              Riawan, Edi and Suwarman, Rusmawan and Puradimaja, Deny J.},
   year    = {2026},
-  version = {0.0.2},
+  version = {0.0.3},
   url     = {https://github.com/sandyherho/amerta}
 }
 ```

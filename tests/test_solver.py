@@ -1,4 +1,23 @@
-"""Unit tests for amerta solver v0.0.2."""
+"""Unit tests for amerta solver v0.0.3.
+
+New in v0.0.3
+-------------
+TestSolver.test_ic_velocity_stored_correctly
+    Regression test for the u_all[0] = zeros bug.
+    Asserts that u_all[0] exactly equals the specified initial velocity
+    field for a case with nonzero ICs (double rarefaction).
+
+TestAnalytical.test_ritter_ic_h_exact
+    Regression test for the Ritter t=0 IC mismatch bug.
+    Asserts L1(h)|_{t=0} < 1e-10, i.e. the analytical h at t=0
+    matches the numerical IC (h_right = 1e-3) exactly.
+
+TestAnalytical.test_double_rarefaction_ic_u_exact
+    Regression test that L1(u)|_{t=0} = 0 for double rarefaction.
+
+TestAnalytical.test_double_shock_ic_u_exact
+    Regression test that L1(u)|_{t=0} = 0 for double shock.
+"""
 import pytest, sys, os, numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from amerta_sv.core.solver import SaintVenantSolver
@@ -13,6 +32,26 @@ def stoker_params():
               'u_left':0.,'u_right':0.,'nx':100,'cfl':0.9,
               't_final':10.,'anim_frames':5,
               'scenario_name':'test','case_type':'stoker'})
+    return p
+
+
+@pytest.fixture
+def double_rarefaction_params():
+    p = get_case('double_rarefaction')
+    p.update({'g':9.81,'L':2000.,'h_left':5.,'h_right':5.,
+              'u_left':-3.,'u_right':3.,'nx':100,'cfl':0.9,
+              't_final':5.,'anim_frames':5,
+              'scenario_name':'test_dr','case_type':'double_rarefaction'})
+    return p
+
+
+@pytest.fixture
+def double_shock_params():
+    p = get_case('double_shock')
+    p.update({'g':9.81,'L':2000.,'h_left':3.,'h_right':3.,
+              'u_left':3.,'u_right':-3.,'nx':100,'cfl':0.9,
+              't_final':5.,'anim_frames':5,
+              'scenario_name':'test_ds','case_type':'double_shock'})
     return p
 
 
@@ -53,7 +92,6 @@ class TestSolver:
         assert abs(r['mass_err_pct']) < 1.0
 
     def test_energy_dissipated_stoker(self, stoker_params):
-        # Stoker has a shock → energy must be dissipated (positive)
         s = SaintVenantSolver(nthreads=2, verbose=False)
         r = s.solve(stoker_params)
         assert r['energy_dissipated_pct'] > 0
@@ -63,7 +101,7 @@ class TestSolver:
         r = s.solve(stoker_params)
         assert r['cfl_max'] <= 1.05
 
-    def test_ic_at_t0(self, stoker_params):
+    def test_ic_at_t0_depth(self, stoker_params):
         s = SaintVenantSolver(nthreads=2, verbose=False)
         r = s.solve(stoker_params)
         x = r['x']; x_dam = stoker_params['L']/2
@@ -71,7 +109,6 @@ class TestSolver:
         assert np.allclose(r['h_all'][0, x >= x_dam], stoker_params['h_right'], atol=1e-10)
 
     def test_froude_subcritical_stoker(self, stoker_params):
-        """Stoker wet-bed solution must be subcritical everywhere."""
         s = SaintVenantSolver(nthreads=2, verbose=False)
         r = s.solve(stoker_params)
         assert np.nanmax(r['froude_max_all']) < 1.1
@@ -85,7 +122,56 @@ class TestSolver:
                   'scenario_name':'dr','case_type':'double_rarefaction'})
         s = SaintVenantSolver(nthreads=2, verbose=False)
         r = s.solve(p)
-        assert r['mass_err_pct'] < -5.0  # outflow expected
+        assert r['mass_err_pct'] < -5.0
+
+    # ------------------------------------------------------------------
+    # v0.0.3 regression: u_all[0] must store actual initial velocity
+    # ------------------------------------------------------------------
+
+    def test_ic_velocity_stored_correctly_zero(self, stoker_params):
+        """
+        For cases where u_left = u_right = 0, u_all[0] must be all zeros.
+        This was already correct in v0.0.2 but is kept as a sanity check.
+        """
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(stoker_params)
+        assert np.allclose(r['u_all'][0], 0.0, atol=1e-14)
+
+    def test_ic_velocity_stored_correctly_nonzero(self, double_rarefaction_params):
+        """
+        v0.0.3 bug fix: u_all[0] must equal the initial velocity field,
+        NOT np.zeros(nx).  Previously this test would have failed because
+        u_all[0] was silently stored as zeros regardless of u_left/u_right.
+        """
+        p = double_rarefaction_params
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(p)
+        x = r['x']; x_dam = p['L'] / 2.0
+        assert np.allclose(r['u_all'][0, x <  x_dam], p['u_left'],  atol=1e-10), \
+            "u_all[0] left of dam does not match u_left"
+        assert np.allclose(r['u_all'][0, x >= x_dam], p['u_right'], atol=1e-10), \
+            "u_all[0] right of dam does not match u_right"
+
+    def test_ic_velocity_double_shock(self, double_shock_params):
+        """Same regression test for the double shock case."""
+        p = double_shock_params
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(p)
+        x = r['x']; x_dam = p['L'] / 2.0
+        assert np.allclose(r['u_all'][0, x <  x_dam], p['u_left'],  atol=1e-10)
+        assert np.allclose(r['u_all'][0, x >= x_dam], p['u_right'], atol=1e-10)
+
+    def test_anim_u_ic_nonzero(self, double_rarefaction_params):
+        """
+        anim_u[0] was also stored as zeros(nx) in v0.0.2.
+        In v0.0.3 it must equal u0.
+        """
+        p = double_rarefaction_params
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(p)
+        x = r['x']; x_dam = p['L'] / 2.0
+        assert np.allclose(r['anim_u'][0, x <  x_dam], p['u_left'],  atol=1e-10)
+        assert np.allclose(r['anim_u'][0, x >= x_dam], p['u_right'], atol=1e-10)
 
 
 class TestCases:
@@ -97,7 +183,6 @@ class TestCases:
         p = get_case(name)
         p.update({'g':9.81,'L':2000.,'nx':60,'cfl':0.9,'t_final':5.,
                   'anim_frames':5,'scenario_name':f'test_{name}','case_type':name})
-        # set realistic h per case
         if name == 'stoker':   p.update({'h_left':10.,'h_right':2.})
         elif name == 'ritter': p.update({'h_left':10.,'h_right':1e-3})
         elif name in ('double_rarefaction','double_shock'):
@@ -141,7 +226,8 @@ class TestAnalytical:
         assert an['h'].shape == r['h_all'].shape
         assert len(an['l1_h']) == len(r['t_all'])
 
-    def test_error_zero_at_t0(self):
+    def test_error_zero_at_t0_stoker(self):
+        """Stoker: both L1(h) and L1(u) must be exactly 0 at t=0."""
         p = get_case('stoker')
         p.update({'g':9.81,'L':2000.,'h_left':10.,'h_right':2.,
                   'u_left':0.,'u_right':0.,'nx':100,'cfl':0.9,
@@ -150,7 +236,74 @@ class TestAnalytical:
         r = s.solve(p)
         an = compute_analytical('stoker', p, r['x'], r['t_all'])
         fill_error_norms(an, r['h_all'], r['u_all'], r['dx'])
-        assert an['l1_h'][0] < 1e-10
+        assert an['l1_h'][0] < 1e-10, f"L1(h) at t=0 not zero: {an['l1_h'][0]}"
+        assert an['l1_u'][0] < 1e-10, f"L1(u) at t=0 not zero: {an['l1_u'][0]}"
+
+    # ------------------------------------------------------------------
+    # v0.0.3 regression: L1(h)|_{t=0} and L1(u)|_{t=0} must be zero
+    # for ALL four cases after both bug fixes.
+    # ------------------------------------------------------------------
+
+    def test_ritter_ic_h_exact(self):
+        """
+        v0.0.3 fix: _ritter_at_t now returns h_right on the dry side at t=0.
+        Previously L1(h)|_{t=0} ≈ 1.0 m because the analytical IC had h_R=0
+        while the numerical IC had h_R=1e-3.
+        """
+        p = get_case('ritter')
+        p.update({'g':9.81,'L':2000.,'h_left':10.,'h_right':1e-3,
+                  'u_left':0.,'u_right':0.,'nx':100,'cfl':0.9,
+                  't_final':5.,'anim_frames':5,'scenario_name':'r_ic','case_type':'ritter'})
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(p)
+        an = compute_analytical('ritter', p, r['x'], r['t_all'])
+        fill_error_norms(an, r['h_all'], r['u_all'], r['dx'])
+        assert an['l1_h'][0] < 1e-10, \
+            f"Ritter L1(h) at t=0 not zero (got {an['l1_h'][0]:.3e}). " \
+            f"Check _ritter_at_t h_right fix."
+        assert an['l1_u'][0] < 1e-10, \
+            f"Ritter L1(u) at t=0 not zero (got {an['l1_u'][0]:.3e})."
+
+    def test_double_rarefaction_ic_u_exact(self):
+        """
+        v0.0.3 fix: u_all[0] now stores actual initial velocities.
+        Previously L1(u)|_{t=0} ≈ 6000 m²/s for double rarefaction
+        because u_all[0] was all zeros while u_left=-3, u_right=+3.
+        """
+        p = get_case('double_rarefaction')
+        p.update({'g':9.81,'L':2000.,'h_left':5.,'h_right':5.,
+                  'u_left':-3.,'u_right':3.,'nx':100,'cfl':0.9,
+                  't_final':5.,'anim_frames':5,
+                  'scenario_name':'dr_ic','case_type':'double_rarefaction'})
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(p)
+        an = compute_analytical('double_rarefaction', p, r['x'], r['t_all'])
+        fill_error_norms(an, r['h_all'], r['u_all'], r['dx'])
+        assert an['l1_h'][0] < 1e-10, \
+            f"DR L1(h) at t=0 not zero: {an['l1_h'][0]:.3e}"
+        assert an['l1_u'][0] < 1e-10, \
+            f"DR L1(u) at t=0 not zero: {an['l1_u'][0]:.3e}. " \
+            f"u_all[0] bug not fixed."
+
+    def test_double_shock_ic_u_exact(self):
+        """
+        Same regression test for double shock (u_left=+3, u_right=-3).
+        Previously L1(u)|_{t=0} ≈ 6000 m²/s.
+        """
+        p = get_case('double_shock')
+        p.update({'g':9.81,'L':2000.,'h_left':3.,'h_right':3.,
+                  'u_left':3.,'u_right':-3.,'nx':100,'cfl':0.9,
+                  't_final':5.,'anim_frames':5,
+                  'scenario_name':'ds_ic','case_type':'double_shock'})
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(p)
+        an = compute_analytical('double_shock', p, r['x'], r['t_all'])
+        fill_error_norms(an, r['h_all'], r['u_all'], r['dx'])
+        assert an['l1_h'][0] < 1e-10, \
+            f"DS L1(h) at t=0 not zero: {an['l1_h'][0]:.3e}"
+        assert an['l1_u'][0] < 1e-10, \
+            f"DS L1(u) at t=0 not zero: {an['l1_u'][0]:.3e}. " \
+            f"u_all[0] bug not fixed."
 
     def test_ritter_fan_accuracy(self):
         """Fan interior errors should be small (< 0.2m) for nx=200."""
@@ -162,8 +315,7 @@ class TestAnalytical:
         r = s.solve(p)
         an = compute_analytical('ritter', p, r['x'], r['t_all'])
         fill_error_norms(an, r['h_all'], r['u_all'], r['dx'])
-        # L1(h) at final time should be below a reasonable bound
-        assert an['l1_h'][-1] < 100.0  # generous bound for L1 over 2km
+        assert an['l1_h'][-1] < 100.0
 
 
 class TestNetCDF:
@@ -186,6 +338,35 @@ class TestNetCDF:
             assert v in nc.variables, f"missing: {v}"
         assert len(nc.dimensions['time']) == r['n_steps']+1
         assert nc.analytical_solution_available == 1
+        # check version string updated
+        assert '0.0.3' in nc.source
+        nc.close()
+
+    def test_netcdf_u_ic_correct(self, tmp_path):
+        """
+        v0.0.3: verify that u[0, :] stored in NetCDF equals the actual
+        initial velocity, not zeros.
+        """
+        from amerta_sv.io.data_handler import DataHandler
+        from netCDF4 import Dataset
+        p = get_case('double_rarefaction')
+        p.update({'g':9.81,'L':2000.,'h_left':5.,'h_right':5.,
+                  'u_left':-3.,'u_right':3.,'nx':60,'cfl':0.9,
+                  't_final':5.,'anim_frames':5,
+                  'scenario_name':'nc_dr','case_type':'double_rarefaction'})
+        s = SaintVenantSolver(nthreads=2, verbose=False)
+        r = s.solve(p)
+        an = compute_analytical('double_rarefaction', p, r['x'], r['t_all'])
+        fill_error_norms(an, r['h_all'], r['u_all'], r['dx'])
+        DataHandler.save_netcdf('dr.nc', r, str(tmp_path), analytical=an)
+        nc = Dataset(str(tmp_path/'dr.nc'))
+        u0_nc = nc.variables['u'][0, :]
+        x     = nc.variables['x'][:]
+        x_dam = p['L'] / 2.0
+        assert np.allclose(u0_nc[x <  x_dam], p['u_left'],  atol=1e-10), \
+            "NetCDF u[0,:] left of dam wrong"
+        assert np.allclose(u0_nc[x >= x_dam], p['u_right'], atol=1e-10), \
+            "NetCDF u[0,:] right of dam wrong"
         nc.close()
 
 

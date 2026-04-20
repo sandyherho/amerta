@@ -1,4 +1,4 @@
-"""NetCDF and CSV output — v0.0.2.
+"""NetCDF and CSV output — v0.0.3.
 
 NetCDF variables
 ----------------
@@ -146,7 +146,7 @@ class DataHandler:
             nc.title            = f"1D Saint-Venant: {p.get('scenario_name','?')}"
             nc.case_type        = p.get('case_type','?')
             nc.institution      = 'amerta'
-            nc.source           = 'amerta v0.0.2 (MUSCL-HLLC + SSP-RK2)'
+            nc.source           = 'amerta v0.0.3 (MUSCL-HLLC + SSP-RK2)'
             nc.history          = f"Created {datetime.now().isoformat()}"
             nc.references       = 'Toro (2001); Stoker (1957); Ritter (1892)'
             nc.analytical_solution_available = int(has_an)
@@ -164,8 +164,6 @@ class DataHandler:
             nc.nthreads         = int(result['nthreads'])
 
         return str(fp)
-
-    # ── unchanged ─────────────────────────────────────────────────────────
 
     @staticmethod
     def save_csv(filename, result, output_dir="outputs"):

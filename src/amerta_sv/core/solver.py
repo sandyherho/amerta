@@ -8,6 +8,13 @@ Conservation diagnostics tracked at every timestep
     momentum_all    : integral of q=hu over domain [m³/s]
     energy_all      : integral of (½u²h + ½gh²) over domain [m³/s²·m = m³/s²]
     froude_max_all  : max(|u|/sqrt(gh)) masked to h > h_dry [dimensionless]
+
+Changelog
+---------
+v0.0.3 — Bug fix: u_all[0] now correctly stores the actual initial velocity
+         field u0 instead of an all-zero array.  Previously, cases with
+         nonzero initial velocity (double rarefaction, double shock) showed
+         a spurious L1(u) error of O(n_x * |u0| * dx) at t=0.
 """
 import os
 import numpy as np
@@ -144,6 +151,13 @@ class SaintVenantSolver:
 
     Full trajectory (every timestep) stored in h_all/u_all/q_all/t_all.
     Conservation diagnostics tracked at every step.
+
+    Bug fixes in v0.0.3
+    -------------------
+    u_all[0] previously stored np.zeros(nx) regardless of the initial
+    velocity field.  It now stores u0.copy() — the actual cell-averaged
+    initial velocities — so that L1/L2(u) errors at t=0 are exactly zero
+    for all four canonical cases.
     """
 
     def __init__(self, nthreads=None, verbose=True, logger=None):
@@ -180,14 +194,17 @@ class SaintVenantSolver:
             pass
 
         mass0 = float(np.sum(h) * dx)
-        u0_arr = np.where(h > H_DRY, q/h, 0.0)
-        e0 = float(np.sum(0.5*u0_arr**2*h + 0.5*g*h**2)*dx)
+        e0 = float(np.sum(0.5*u0**2*h + 0.5*g*h**2)*dx)
         m0_mom = float(np.sum(q)*dx)
 
-        # ── trajectory ───────────────────────────────────────────────────
+        # ── trajectory ────────────────────────────────────────────────────
+        # v0.0.3 fix: u_all[0] = u0.copy() instead of np.zeros(nx).
+        # Previously the initial velocity snapshot was silently all-zero,
+        # causing a large spurious L1(u) error at t=0 for cases with
+        # nonzero initial velocities (double rarefaction, double shock).
         t_all   = [0.0]
         h_all   = [h.copy()]
-        u_all   = [np.zeros(nx)]
+        u_all   = [u0.copy()]          # FIX: was [np.zeros(nx)]
         q_all   = [q.copy()]
 
         # ── conservation diagnostics ──────────────────────────────────────
@@ -200,7 +217,7 @@ class SaintVenantSolver:
         # ── anim subsampling (GIF only) ───────────────────────────────────
         anim_dt    = t_final / max(anim_frames-1, 1)
         next_anim  = anim_dt
-        anim_h     = [h.copy()]; anim_u = [np.zeros(nx)]
+        anim_h     = [h.copy()]; anim_u = [u0.copy()]   # FIX: was [np.zeros(nx)]
         anim_q     = [q.copy()]; anim_times = [0.0]
 
         t = 0.0; step = 0

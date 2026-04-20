@@ -42,7 +42,6 @@ class Animator:
         out = Path(output_dir); out.mkdir(parents=True, exist_ok=True)
         fp = out / filename
         x = result['x']
-        # subsample 5 evenly-spaced frames from the full trajectory
         n_snaps = 5
         all_idx = np.round(np.linspace(0, len(result['t_all'])-1, n_snaps)).astype(int)
         t = result['t_all'][all_idx]
@@ -72,7 +71,7 @@ class Animator:
         x = result['x']; h = result['h_final']; q = result['q_final']
         g = result['params']['g']
         u = np.where(h>1e-8, q/h, 0.0); Fr = np.abs(u)/np.sqrt(g*h+1e-12)
-        E = 0.5*u*u + g*h  # specific energy head
+        E = 0.5*u*u + g*h
         fig, axes = plt.subplots(2, 2, figsize=(11, 8), facecolor=BG)
         axes[0,0].plot(x, h, color=WAVE, lw=1.8); axes[0,0].fill_between(x, 0, h, color=WAVE, alpha=0.25)
         axes[0,0].set_ylabel('h [m]'); axes[0,0].set_title('Final depth profile', color=LIGHT)
@@ -96,22 +95,18 @@ class Animator:
         fp = out / filename
         p = result['params']
         fig, axes = plt.subplots(2, 2, figsize=(11, 8), facecolor=BG)
-        # Wave speed celerity
         x = result['x']; h = result['h_final']
         c = np.sqrt(p['g']*h); axes[0,0].plot(x, c, color=WAVE, lw=1.6)
         axes[0,0].set_ylabel('c = sqrt(gh) [m/s]'); axes[0,0].set_xlabel('x [m]')
         axes[0,0].set_title('Wave celerity (final)', color=LIGHT)
-        # dt statistics
         labels = ['dt_min','dt_max']; vals = [result['dt_min'], result['dt_max']]
         axes[0,1].bar(labels, vals, color=[WAVE, ACCENT], edgecolor=EDGE)
         axes[0,1].set_ylabel('dt [s]'); axes[0,1].set_title('Adaptive time step range', color=LIGHT)
-        # CFL
         axes[1,0].bar(['target','mean','max'],
                       [p['cfl'], result.get('cfl_mean', result['cfl_max']), result['cfl_max']],
                       color=[MUTED, WAVE, ACCENT], edgecolor=EDGE)
         axes[1,0].axhline(1.0, color='#ef6f6c', ls='--', lw=1)
         axes[1,0].set_ylabel('CFL'); axes[1,0].set_title('CFL statistics', color=LIGHT)
-        # Mass error
         axes[1,1].bar(['final','max |err|'],
                       [abs(result['mass_err_pct']), result['max_mass_err']],
                       color=[WAVE, ACCENT], edgecolor=EDGE)
@@ -134,8 +129,6 @@ class Animator:
         p = result['params']
         L = float(p['L']); x_dam = 0.5 * L
         nF = H.shape[0]
-        # Layout: title on top, time counter just below it (both outside axes),
-        # then the two stacked panels.
         fig = plt.figure(figsize=(9, 6.8), facecolor=BG)
         gs = fig.add_gridspec(2, 1, left=0.10, right=0.97,
                               top=0.83, bottom=0.09, hspace=0.18)
@@ -148,7 +141,6 @@ class Animator:
         axu.set_ylim(-u_abs*1.1, u_abs*1.1)
         plt.setp(axh.get_xticklabels(), visible=False)
 
-        # Pull initial parameters for subtitle annotation
         hL_p = float(p['h_left']); hR_p = float(p['h_right'])
         uL_p = float(p.get('u_left', 0.0)); uR_p = float(p.get('u_right', 0.0))
         g_p  = float(p['g'])
@@ -163,8 +155,6 @@ class Animator:
         ttxt = fig.text(0.5, 0.888, '', ha='center', va='center',
                         color=ACCENT, fontfamily='monospace', fontsize=11)
 
-        # Only the dam structure is marked — red-dashed vertical line on both panels,
-        # drawn under the evolving solution.
         REF = '#ef4444'
         axh.axvline(x_dam, color=REF, ls='--', lw=1.3, alpha=0.85, zorder=2)
         axu.axvline(x_dam, color=REF, ls='--', lw=1.3, alpha=0.85, zorder=2)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "amerta"
-version = "0.0.2"
+version = "0.0.3"
 description = "1D Saint-Venant (shallow water) equations solver: MUSCL-HLLC + SSP-RK2"
 authors = [
     "Dasapta E. Irawan",

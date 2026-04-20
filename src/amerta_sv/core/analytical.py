@@ -3,13 +3,25 @@ Exact analytical solutions for the four canonical 1D SWE Riemann problems.
 
 Supported cases
 ---------------
-ritter           : Ritter (1892) wet-dry, single rarefaction – closed form
-stoker           : Stoker (1957) wet-wet, rarefaction + shock – Newton on h*
+ritter            : Ritter (1892) wet-dry, single rarefaction – closed form
+stoker            : Stoker (1957) wet-wet, rarefaction + shock – Newton on h*
 double_rarefaction: symmetric diverging flow – closed form
 double_shock      : symmetric converging flow – Newton on h*
 
 All solvers work in similarity coordinates  ξ = (x − x_dam) / t
 and vectorise over (x, t) arrays.
+
+Changelog
+---------
+v0.0.3 — Bug fix: _ritter_at_t now accepts h_right and sets h[x >= x_dam] = hR
+         at t=0, so the analytical initial condition matches the numerical IC
+         exactly (h_right = 1e-3 in the config, not 0).  For t > 0 the
+         analytical solution still applies the exact Ritter dry-front formula
+         (h → 0 ahead of the wave front), which is mathematically correct.
+         The dispatch lambda is updated accordingly.
+         Previously, L1(h)|_{t=0} was nonzero (~1.0 m) for the Ritter case
+         because the analytical IC had h_R = 0 while the numerical IC had
+         h_R = 1e-3.
 """
 import numpy as np
 from scipy.optimize import brentq
@@ -19,12 +31,23 @@ from scipy.optimize import brentq
 # Ritter (dry-bed) – fully closed form
 # ---------------------------------------------------------------------------
 
-def _ritter_at_t(x, t, hL, g, x_dam):
+def _ritter_at_t(x, t, hL, hR, g, x_dam):
+    """
+    Exact Ritter (1892) solution.
+
+    Parameters
+    ----------
+    hR : float
+        Right-side depth used *only* at t = 0 to match the numerical IC.
+        For t > 0 the undisturbed right state ahead of the dry front is
+        analytically 0; hR is ignored there.
+    """
     cL = np.sqrt(g * hL)
     h = np.zeros_like(x)
     u = np.zeros_like(x)
     if t <= 0.0:
-        h[x < x_dam] = hL
+        h[x <  x_dam] = hL
+        h[x >= x_dam] = hR   # FIX: match numerical IC exactly (was implicitly 0)
         return h, u
     xi = (x - x_dam) / t
     m1 = xi < -cL                       # undisturbed left
@@ -32,7 +55,7 @@ def _ritter_at_t(x, t, hL, g, x_dam):
     h[m1] = hL
     h[m2] = (2.0 * cL - xi[m2]) ** 2 / (9.0 * g)
     u[m2] = (2.0 / 3.0) * (xi[m2] + cL)
-    # dry front: h=0, u=0 (already zero-initialised)
+    # dry front: h=0, u=0 (already zero-initialised) — analytically exact
     return h, u
 
 
@@ -46,21 +69,20 @@ def _stoker_star_state(hL, hR, uL, uR, g):
 
     def residual(hstar):
         cstar = np.sqrt(g * hstar)
-        u_left  = uL + 2.0 * (cL - cstar)                                   # left rarefaction
-        u_right = uR + (hstar - hR) * np.sqrt(g * (hstar + hR) / (2.0 * hstar * hR))  # right shock
+        u_left  = uL + 2.0 * (cL - cstar)
+        u_right = uR + (hstar - hR) * np.sqrt(g * (hstar + hR) / (2.0 * hstar * hR))
         return u_left - u_right
 
-    # h* is between hR (right undisturbed) and hL (left undisturbed)
     hstar = brentq(residual, hR * 1.0001, hL * 0.9999, xtol=1e-12, maxiter=200)
     cstar = np.sqrt(g * hstar)
     ustar = uL + 2.0 * (cL - cstar)
-    S     = (hstar * ustar - hR * uR) / (hstar - hR)   # Rankine–Hugoniot shock speed
+    S     = (hstar * ustar - hR * uR) / (hstar - hR)
     return hstar, ustar, S
 
 
 def _stoker_at_t(x, t, hL, hR, uL, uR, g, x_dam):
     cL = np.sqrt(g * hL)
-    K  = uL + 2.0 * cL              # right-running Riemann invariant (const across left fan)
+    K  = uL + 2.0 * cL
     h = np.zeros_like(x)
     u = np.zeros_like(x)
     if t <= 0.0:
@@ -72,10 +94,10 @@ def _stoker_at_t(x, t, hL, hR, uL, uR, g, x_dam):
     cstar = np.sqrt(g * hstar)
     xi = (x - x_dam) / t
 
-    m1 = xi < uL - cL                          # undisturbed left
-    m2 = (~m1) & (xi <= ustar - cstar)          # left rarefaction fan
-    m3 = (~m1) & (~m2) & (xi < S)              # star state
-    m4 = xi >= S                                # undisturbed right
+    m1 = xi < uL - cL
+    m2 = (~m1) & (xi <= ustar - cstar)
+    m3 = (~m1) & (~m2) & (xi < S)
+    m4 = xi >= S
 
     h[m1] = hL;  u[m1] = uL
     c_fan = (K - xi[m2]) / 3.0
@@ -93,10 +115,8 @@ def _stoker_at_t(x, t, hL, hR, uL, uR, g, x_dam):
 def _double_rarefaction_at_t(x, t, hL, hR, uL, uR, g, x_dam):
     """uL = -U, uR = +U, hL = hR = h0."""
     h0 = hL;  c0 = np.sqrt(g * h0)
-    U  = uR                              # > 0
-    K_L = uL + 2.0 * c0                 #  -U + 2c0  (right-running invariant from left state)
-    K_R = uR - 2.0 * c0                 #   U - 2c0  (left-running invariant from right state)
-    # star state (u*=0 by symmetry): 0 + 2c* = K_L  →  c* = K_L/2
+    K_L = uL + 2.0 * c0
+    K_R = uR - 2.0 * c0
     cstar = K_L / 2.0
     hstar = max(cstar ** 2 / g, 0.0)
 
@@ -109,11 +129,11 @@ def _double_rarefaction_at_t(x, t, hL, hR, uL, uR, g, x_dam):
 
     xi = (x - x_dam) / t
 
-    m1 = xi < uL - c0                          # undisturbed left
-    m2 = (~m1) & (xi <= -cstar)                # left rarefaction fan
-    m3 = (~m1) & (~m2) & (xi < cstar)          # star state (near-vacuum)
-    m4 = (~m1) & (~m2) & (~m3) & (xi <= uR + c0)  # right rarefaction fan
-    m5 = xi > uR + c0                          # undisturbed right
+    m1 = xi < uL - c0
+    m2 = (~m1) & (xi <= -cstar)
+    m3 = (~m1) & (~m2) & (xi < cstar)
+    m4 = (~m1) & (~m2) & (~m3) & (xi <= uR + c0)
+    m5 = xi > uR + c0
 
     h[m1] = h0;  u[m1] = uL
     c_L = (K_L - xi[m2]) / 3.0
@@ -140,12 +160,10 @@ def _double_shock_star_h(h0, U, g):
 
 def _double_shock_at_t(x, t, hL, hR, uL, uR, g, x_dam):
     """uL = +U, uR = -U, hL = hR = h0."""
-    h0 = hL;  U = uL   # > 0
+    h0 = hL;  U = uL
     hstar = _double_shock_star_h(h0, U, g)
-    # Shock speeds via mass conservation (u*=0 by symmetry)
-    # SL*(hstar - h0) = h0*U - hstar*0  →  SL = h0*U/(h0-hstar)  < 0
-    S_L = h0 * U / (h0 - hstar)   # negative (left-going shock)
-    S_R = -S_L                    # positive (right-going shock, by symmetry)
+    S_L = h0 * U / (h0 - hstar)
+    S_R = -S_L
 
     h = np.zeros_like(x)
     u = np.zeros_like(x)
@@ -156,9 +174,9 @@ def _double_shock_at_t(x, t, hL, hR, uL, uR, g, x_dam):
 
     xi = (x - x_dam) / t
 
-    m1 = xi < S_L              # undisturbed left
-    m2 = (~m1) & (xi <= S_R)  # star state
-    m3 = xi > S_R              # undisturbed right
+    m1 = xi < S_L
+    m2 = (~m1) & (xi <= S_R)
+    m3 = xi > S_R
 
     h[m1] = h0;  u[m1] = U
     h[m2] = hstar
@@ -172,9 +190,10 @@ def _double_shock_at_t(x, t, hL, hR, uL, uR, g, x_dam):
 
 ANALYTICAL_AVAILABLE = frozenset({'ritter', 'stoker', 'double_rarefaction', 'double_shock'})
 
+# v0.0.3: ritter dispatch now passes p['h_right'] so the IC at t=0 is exact.
 _DISPATCH = {
     'ritter':             lambda x, t, p, xd: _ritter_at_t(
-                              x, t, p['h_left'], p['g'], xd),
+                              x, t, p['h_left'], p['h_right'], p['g'], xd),
     'stoker':             lambda x, t, p, xd: _stoker_at_t(
                               x, t, p['h_left'], p['h_right'],
                               p.get('u_left', 0.0), p.get('u_right', 0.0), p['g'], xd),
@@ -208,7 +227,7 @@ def compute_analytical(case_type, params, x, t_array):
         'available' : bool
         'h'         : ndarray (nt, nx) or None
         'u'         : ndarray (nt, nx) or None
-        'l1_h'      : ndarray (nt,)   L1 norm placeholder (filled by caller with numerical)
+        'l1_h'      : ndarray (nt,)   — filled by fill_error_norms
         'l2_h'      : ndarray (nt,)
         'l1_u'      : ndarray (nt,)
         'l2_u'      : ndarray (nt,)
@@ -231,7 +250,7 @@ def compute_analytical(case_type, params, x, t_array):
         'available': True,
         'h': h_an,
         'u': u_an,
-        'l1_h': np.zeros(nt),   # caller fills these
+        'l1_h': np.zeros(nt),
         'l2_h': np.zeros(nt),
         'l1_u': np.zeros(nt),
         'l2_u': np.zeros(nt),
@@ -241,6 +260,9 @@ def compute_analytical(case_type, params, x, t_array):
 def fill_error_norms(analytical, h_num, u_num, dx):
     """
     Given analytical dict and numerical arrays, fill L1/L2 error norms in-place.
+
+    L1(h) = sum_i |h_num_i - h_an_i| * dx   [m]
+    L2(h) = sqrt(sum_i (h_num_i - h_an_i)^2 * dx)   [m]
 
     Parameters
     ----------

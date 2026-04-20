@@ -16,7 +16,7 @@ def print_header():
     print("\n" + "="*70)
     print(" "*14 + "amerta: 1D Saint-Venant Equations Solver")
     print(" "*19 + "MUSCL-HLLC + SSP-RK2")
-    print(" "*26 + "v0.0.2")
+    print(" "*26 + "v0.0.3")
     print("="*70 + "\n")
 
 
