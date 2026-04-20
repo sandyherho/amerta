@@ -59,12 +59,15 @@ def run_scenario(config, output_dir='outputs', verbose=True, nthreads=None):
             if verbose: print("\n[3/4] Computing analytical solution (if available)...")
             analytical = compute_analytical(
                 case_type, config, result['x'], result['t_all'])
+            # v0.0.4: pass q_all directly for best discharge-norm fidelity
             fill_error_norms(
-                analytical, result['h_all'], result['u_all'], result['dx'])
+                analytical, result['h_all'], result['u_all'], result['dx'],
+                q_num=result['q_all'])
             logger.log_error_summary(analytical, result['t_all'])
             if analytical['available'] and verbose:
-                print(f"  L1(h) at t_final = {analytical['l1_h'][-1]:.4e} m")
-                print(f"  L2(h) at t_final = {analytical['l2_h'][-1]:.4e} m")
+                print(f"  L1(h)     at t_final = {analytical['l1_h'][-1]:.4e} m")
+                print(f"  L1(q)     at t_final = {analytical['l1_q'][-1]:.4e} m2/s")
+                print(f"  L1(u_wet) at t_final = {analytical['l1_u_wet'][-1]:.4e} m/s")
             elif verbose:
                 print(f"  No analytical solution for case_type='{case_type}'")
 

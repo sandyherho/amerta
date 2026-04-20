@@ -1,4 +1,4 @@
-"""NetCDF and CSV output — v0.0.3.
+"""NetCDF and CSV output 
 
 NetCDF variables
 ----------------
@@ -19,13 +19,20 @@ Conservation diagnostics  (time,)
     energy_diss_pct     cumulative energy dissipation vs initial [%]
     froude_max          max Froude number (h > H_DRY = 0.01 m only) [-]
 
-Analytical solution (when available)
+v0.0.3 error norms (when analytical solution available)
     h_analytical (time,x)   exact depth [m]
     u_analytical (time,x)   exact velocity [m/s]
     h_error      (time,x)   h - h_analytical [m]
     u_error      (time,x)   u - u_analytical [m/s]
-    l1_h, l2_h   (time,)    integrated L1/L2 depth error norms [m]
-    l1_u, l2_u   (time,)    integrated L1/L2 velocity error norms [m/s]
+    l1_h, l2_h   (time,)    depth L1/L2 error norms [m]
+    l1_u, l2_u   (time,)    velocity L1/L2 error norms [m/s]
+
+v0.0.4 error norms (new — when analytical solution available)
+    l1_q, l2_q       (time,)  discharge L1/L2 error norms [m²/s]
+                              q=hu is the conserved variable; well-behaved
+                              for dry-bed cases where l1_u diverges.
+    l1_u_wet, l2_u_wet (time,) wet-cell velocity L1/L2 norms [m/s]
+                              restricted to cells with h>H_DRY on both sides.
 """
 import numpy as np
 import pandas as pd
@@ -108,7 +115,7 @@ class DataHandler:
                 'maximum_froude_number_in_wet_domain',
                 f'max(|u|/sqrt(gh)) where h > H_DRY={0.01} m; NaN cells excluded')
 
-            # ── analytical + error fields ──────────────────────────────────
+            # ── analytical + v0.0.3 error fields ──────────────────────────
             has_an = analytical is not None and analytical.get('available', False)
             if has_an:
                 vhan = nc.createVariable('h_analytical','f8',('time','x'),
@@ -131,22 +138,45 @@ class DataHandler:
                 vue[:]=u-analytical['u']; vue.units='m s-1'
                 vue.long_name='velocity_error_numerical_minus_analytical'
 
-                for key, lname, units in [
-                    ('l1_h','L1_depth_error_norm','m'),
-                    ('l2_h','L2_depth_error_norm','m'),
-                    ('l1_u','L1_velocity_error_norm','m s-1'),
-                    ('l2_u','L2_velocity_error_norm','m s-1'),
+                # v0.0.3 norm variables
+                for key, lname, units, cmt in [
+                    ('l1_h','L1_depth_error_norm','m',
+                     'L1=sum|e_h|dx; well-behaved for all cases'),
+                    ('l2_h','L2_depth_error_norm','m',
+                     'L2=sqrt(sum e_h^2 dx)'),
+                    ('l1_u','L1_velocity_error_norm','m s-1',
+                     'L1=sum|e_u|dx; CAUTION: inflated near dry front (Ritter) '
+                     'due to h-floor; prefer l1_u_wet or l1_q for dry-bed cases'),
+                    ('l2_u','L2_velocity_error_norm','m s-1',
+                     'L2=sqrt(sum e_u^2 dx); see l1_u caution'),
                 ]:
                     vn = nc.createVariable(key,'f8',('time',),zlib=True)
                     vn[:]=analytical[key]; vn.units=units; vn.long_name=lname
-                    vn.comment='L1=sum|e|dx, L2=sqrt(sum e^2 dx)'
+                    vn.comment=cmt
+
+                # v0.0.4 norm variables
+                for key, lname, units, cmt in [
+                    ('l1_q','L1_discharge_error_norm','m2 s-1',
+                     'L1=sum|q_num-q_an|dx where q=hu; recommended primary momentum '
+                     'metric; well-behaved for dry-bed cases'),
+                    ('l2_q','L2_discharge_error_norm','m2 s-1',
+                     'L2=sqrt(sum(q_num-q_an)^2 dx)'),
+                    ('l1_u_wet','L1_wet_velocity_error_norm','m s-1',
+                     'L1(u) restricted to cells where h_num>H_DRY AND h_an>H_DRY '
+                     '(H_DRY=0.01m); removes near-dry singularity from Ritter'),
+                    ('l2_u_wet','L2_wet_velocity_error_norm','m s-1',
+                     'L2(u_wet); see l1_u_wet comment'),
+                ]:
+                    vn = nc.createVariable(key,'f8',('time',),zlib=True)
+                    vn[:]=analytical[key]; vn.units=units; vn.long_name=lname
+                    vn.comment=cmt
 
             # ── global attributes ──────────────────────────────────────────
             nc.Conventions      = 'CF-1.8'
             nc.title            = f"1D Saint-Venant: {p.get('scenario_name','?')}"
             nc.case_type        = p.get('case_type','?')
             nc.institution      = 'amerta'
-            nc.source           = 'amerta v0.0.3 (MUSCL-HLLC + SSP-RK2)'
+            nc.source           = 'amerta (MUSCL-HLLC + SSP-RK2)'
             nc.history          = f"Created {datetime.now().isoformat()}"
             nc.references       = 'Toro (2001); Stoker (1957); Ritter (1892)'
             nc.analytical_solution_available = int(has_an)

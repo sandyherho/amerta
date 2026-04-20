@@ -5,152 +5,36 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![DOI](https://zenodo.org/badge/1210460312.svg)](https://doi.org/10.5281/zenodo.19596023)
-[![NumPy](https://img.shields.io/badge/NumPy-%23013243.svg?logo=numpy&logoColor=white)](https://numpy.org/)
-[![SciPy](https://img.shields.io/badge/SciPy-%230C55A5.svg?logo=scipy&logoColor=white)](https://scipy.org/)
-[![Matplotlib](https://img.shields.io/badge/Matplotlib-%23ffffff.svg?logo=Matplotlib&logoColor=black)](https://matplotlib.org/)
-[![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
-[![netCDF4](https://img.shields.io/badge/netCDF4-%23004B87.svg)](https://unidata.github.io/netcdf4-python/)
-[![Numba](https://img.shields.io/badge/Numba-%2300A3E0.svg?logo=numba&logoColor=white)](https://numba.pydata.org/)
-[![Pillow](https://img.shields.io/badge/Pillow-%23000000.svg)](https://python-pillow.org/)
-[![tqdm](https://img.shields.io/badge/tqdm-%23FFC107.svg)](https://tqdm.github.io/)
-
-
-<p align="center">
-  <img src="https://github.com/sandyherho/amerta/blob/main/.assets/case_1_stoker_wet_dam_break.gif" alt="damBreak" width="800">
-</p>
-
 
 ## Model
 
-The Saint-Venant (shallow water) equations describe depth-averaged free-surface flow. In conservative form on a horizontal, frictionless bed:
+The Saint-Venant (shallow water) equations in conservative form on a horizontal, frictionless bed:
 
-### Governing Equations
+**Mass conservation:**  ∂ₜh + ∂ₓ(hu) = 0
 
-**Mass conservation:**
-
-$$\partial_t h + \partial_x (hu) = 0$$
-
-**Momentum conservation:**
-
-$$\partial_t (hu) + \partial_x \left(hu^2 + \tfrac{1}{2} g h^2\right) = 0$$
-
-where $h(x,t)$ is the water depth, $u(x,t)$ is the depth-averaged velocity, $q = hu$ is the specific discharge, and $g$ is gravitational acceleration.
-
-### Vector Form
-
-In conservative vector form $\partial_t \mathbf{U} + \partial_x \mathbf{F}(\mathbf{U}) = 0$ with
-
-$$\mathbf{U} = \begin{pmatrix} h \\ hu \end{pmatrix}, \qquad \mathbf{F}(\mathbf{U}) = \begin{pmatrix} hu \\ hu^2 + \tfrac{1}{2} g h^2 \end{pmatrix}$$
-
-The Jacobian $\partial \mathbf{F} / \partial \mathbf{U}$ has eigenvalues $\lambda_{1,2} = u \mp c$ where $c = \sqrt{gh}$ is the gravity-wave celerity. The Froude number $\mathrm{Fr} = |u|/c$ classifies subcritical ($\mathrm{Fr} < 1$) vs supercritical ($\mathrm{Fr} > 1$) flow.
-
-### Riemann Invariants (for rarefactions)
-
-Across a left-going rarefaction the invariant $u + 2\sqrt{gh}$ is preserved; across a right-going rarefaction $u - 2\sqrt{gh}$ is preserved. Across a shock, the Rankine–Hugoniot conditions hold with shock speed $S$ satisfying
-
-$$S = \frac{h_\star u_\star - h_R u_R}{h_\star - h_R}$$
-
-### Key Parameters
-
-| Parameter | Symbol | Description | Typical Range |
-|:---------:|:------:|:------------|:-------------:|
-| g | $g$ | Gravitational acceleration | $9.81 \ \text{m/s}^2$ |
-| L | $L$ | Channel length | 10–1000 m |
-| h_left | $h_L$ | Initial depth left of dam | 0.5–10 m |
-| h_right | $h_R$ | Initial depth right of dam | 0–10 m |
-| u_left | $u_L$ | Initial velocity left of dam | $-10$ to $+10$ m/s |
-| u_right | $u_R$ | Initial velocity right of dam | $-10$ to $+10$ m/s |
-| nx | $N_x$ | Number of grid cells | 200–5000 |
-| CFL | $\nu$ | Courant number | 0.5–0.9 |
+**Momentum conservation:**  ∂ₜ(hu) + ∂ₓ(hu² + ½gh²) = 0
 
 ### Canonical Riemann Problems
 
-The dam-break problem with initial state $\mathbf{U}(x, 0) = \mathbf{U}_L$ for $x < x_{\text{dam}}$ and $\mathbf{U}_R$ otherwise produces four classical wave patterns:
-
-| Case | State | Wave Structure | Characteristics |
-|:-----:|:------|:---------------|:----------------|
-| **1. Stoker** | Wet–wet dam break | Left rarefaction + right shock | Classical flood wave |
-| **2. Ritter** | Wet–dry dam break | Single rarefaction, dry front | Catastrophic collapse onto dry bed |
-| **3. Double Rarefaction** | Diverging flow | Two rarefactions | Near-vacuum at center |
-| **4. Double Shock** | Converging flow | Two shocks | Frontal collision / surge |
+| Case | State | Wave Structure |
+|:----:|:------|:---------------|
+| **1. Stoker** | Wet–wet | Left rarefaction + right shock |
+| **2. Ritter** | Wet–dry | Single rarefaction, dry front |
+| **3. Double Rarefaction** | Diverging | Two rarefactions |
+| **4. Double Shock** | Converging | Two shocks |
 
 ## Numerical Method
 
-### MUSCL Reconstruction (Second-Order Spatial)
-
-Cell-interface states are reconstructed from cell averages $\mathbf{U}_i$ using the minmod slope limiter:
-
-$$\mathbf{U}_{i+1/2}^L = \mathbf{U}_i + \tfrac{1}{2}\,\mathrm{minmod}(\mathbf{U}_i - \mathbf{U}_{i-1},\, \mathbf{U}_{i+1} - \mathbf{U}_i)$$
-
-$$\mathbf{U}_{i+1/2}^R = \mathbf{U}_{i+1} - \tfrac{1}{2}\,\mathrm{minmod}(\mathbf{U}_{i+1} - \mathbf{U}_i,\, \mathbf{U}_{i+2} - \mathbf{U}_{i+1})$$
-
-where $\mathrm{minmod}(a,b) = \tfrac{1}{2}[\mathrm{sgn}(a) + \mathrm{sgn}(b)]\,\min(|a|,|b|)$.
-
-### HLLC Approximate Riemann Solver
-
-The interface numerical flux $\mathbf{F}_{i+1/2}$ is computed by HLLC (Harten–Lax–van Leer Contact) using Roe-averaged wave-speed estimates:
-
-$$S_L = \min(u_L - c_L,\ \tilde{u} - \tilde{c}), \qquad S_R = \max(u_R + c_R,\ \tilde{u} + \tilde{c})$$
-
-with contact wave speed
-
-$$S_\star = \frac{S_L h_R (u_R - S_R) - S_R h_L (u_L - S_L)}{h_R (u_R - S_R) - h_L (u_L - S_L)}$$
-
-### SSP-RK2 Time Integration
-
-The strong-stability-preserving two-stage Runge–Kutta scheme (Shu & Osher, 1988):
-
-$$\mathbf{U}^{(1)} = \mathbf{U}^n + \Delta t\, \mathcal{L}(\mathbf{U}^n)$$
-
-$$\mathbf{U}^{n+1} = \tfrac{1}{2} \mathbf{U}^n + \tfrac{1}{2}\mathbf{U}^{(1)} + \tfrac{1}{2} \Delta t\, \mathcal{L}(\mathbf{U}^{(1)})$$
-
-with CFL-limited time step
-
-$$\Delta t = \nu \cdot \frac{\Delta x}{\max_i (|u_i| + \sqrt{g h_i})}$$
-
-### Diagnostics
-
-| Diagnostic | Formula | Interpretation |
-|:------:|:--------|:---------------|
-| **Celerity** | $c = \sqrt{gh}$ | Gravity-wave speed |
-| **Froude number** | $\mathrm{Fr} = \lvert u \rvert / c$ | Flow regime classifier |
-| **Specific energy** | $E = \tfrac{1}{2} u^2 + g h$ | Hydraulic head |
-| **Mass balance** | $\int h\, dx$ | Conservation check (closed BC) |
-| **CFL actual** | $\nu_{\text{act}} = (\lvert u \rvert + c)\, \Delta t / \Delta x$ | Stability monitor |
-
-### Analytical Solutions
-
-Exact solutions are available for all four canonical cases and are computed automatically alongside every simulation run. They are written directly into the NetCDF output for post-processing and convergence analysis.
-
-| Case | Method | Reference |
-|:----:|:-------|:----------|
-| Ritter | Closed-form similarity solution | Ritter (1892) |
-| Stoker | Newton iteration on $h_\star$ (Brent) | Stoker (1957) |
-| Double Rarefaction | Closed-form symmetric fan solution | Toro (2001) |
-| Double Shock | Newton iteration on $h_\star$ (Brent) | Toro (2001) |
-
-**Note on the Ritter near-dry-bed case:** The exact Ritter solution assumes $h_R = 0$ exactly. The simulation uses $h_R = 10^{-3}$ m as a near-dry approximation to avoid division by zero. As of v0.0.3 the analytical initial condition at $t = 0$ uses $h_R$ from the config rather than zero, so $L_1(h)|_{t=0} = 0$ exactly. For $t > 0$ the analytical solution correctly applies the dry-front formula ($h = 0$ ahead of the wave).
-
+- **MUSCL reconstruction** (minmod slope limiter, 2nd-order spatial)
+- **HLLC approximate Riemann solver** (Roe-averaged wave speeds)
+- **SSP-RK2** strong-stability-preserving time integration (Shu & Osher 1988)
+- **Adaptive CFL-limited time step** with positivity preservation
+- **Numba JIT** acceleration with parallel `prange` sweeps
 
 ## Installation
 
-**From PyPI:**
 ```bash
 pip install amerta
-```
-
-**From source:**
-```bash
-git clone https://github.com/sandyherho/amerta.git
-cd amerta
-pip install .
-```
-
-**Development installation with Poetry:**
-```bash
-git clone https://github.com/sandyherho/amerta.git
-cd amerta
-poetry install
 ```
 
 ## Quick Start
@@ -162,7 +46,6 @@ amerta case2                     # Ritter dry dam break
 amerta case3                     # Double rarefaction
 amerta case4                     # Double shock
 amerta --all                     # Run all four cases
-amerta case1 --nthreads 8        # Use 8 threads
 ```
 
 **Python API:**
@@ -171,106 +54,38 @@ from amerta_sv import SaintVenantSolver, get_case
 from amerta_sv.io import ConfigManager, DataHandler
 from amerta_sv.core.analytical import compute_analytical, fill_error_norms
 
-# Load preset and override grid resolution
 cfg = ConfigManager.validate_config({
     **get_case('stoker'),
-    'nx': 800, 'cfl': 0.9, 'g': 9.81,
-    'scenario_name': 'stoker_hires',
-    'case_type': 'stoker'
+    'nx': 500, 'cfl': 0.9, 'g': 9.81, 't_final': 80.0,
+    'h_left': 10.0, 'h_right': 2.0, 'L': 2000.0,
+    'scenario_name': 'stoker', 'case_type': 'stoker'
 })
 
-# Solve
 solver = SaintVenantSolver(nthreads=8, verbose=True)
 result = solver.solve(cfg)
 
-# Compute analytical solution and error norms
 an = compute_analytical('stoker', cfg, result['x'], result['t_all'])
-fill_error_norms(an, result['h_all'], result['u_all'], result['dx'])
+fill_error_norms(an, result['h_all'], result['u_all'], result['dx'],
+                 q_num=result['q_all'])   # pass q_all for best accuracy
 
-print(f"L1(h) at t_final = {an['l1_h'][-1]:.4e} m")
-print(f"L2(h) at t_final = {an['l2_h'][-1]:.4e} m")
-
-# Save to NetCDF
-DataHandler.save_netcdf('stoker.nc', result, 'outputs', analytical=an)
+print(f"L1(h)     at t_final = {an['l1_h'][-1]:.4e} m")
+print(f"L1(q)     at t_final = {an['l1_q'][-1]:.4e} m2/s")
+print(f"L1(u_wet) at t_final = {an['l1_u_wet'][-1]:.4e} m/s")
 ```
 
-## Features
-
-- **Second-order MUSCL reconstruction** with minmod slope limiter
-- **HLLC approximate Riemann solver** with Roe-averaged wave speeds
-- **SSP-RK2** strong-stability-preserving time integration
-- **Adaptive CFL-limited time step** with positivity preservation
-- **Numba JIT** acceleration with parallel `prange` sweeps (user-selectable thread count)
-- **Four canonical Riemann test cases** validated against analytical solutions
-- **Exact analytical solutions** for all four cases, auto-computed and saved to NetCDF
-- **L1/L2 error norms** at every snapshot and animation frame, ready for convergence studies
-- **Full time trajectory** (all animation frames) written to NetCDF, not just snapshots
-- **CF-1.8 compliant NetCDF4** output with full trajectory data
-- **Dark-themed publication figures** (time evolution, physical interpretation, numerical aspects)
-- **Animated GIF** with red-dashed dam reference and real-time counter
-- **Configurable scenarios** via plain-text config files
-- **Progress bars** via `tqdm` for integration and GIF rendering
 
 ## Output Files
 
-The library generates, for each case:
-
-- **CSV files**:
-  - `<case>_metrics.csv` — single-run diagnostics (steps, CFL, mass error, etc.)
-  - `comparison_metrics.csv` — appended across all runs for side-by-side comparison
-- **NetCDF**: `<case>.nc` — CF-1.8 with dimensions `(time × x)`, containing:
-  - `h`, `u`, `q` — full numerical trajectory at every solver timestep
-  - `h_analytical`, `u_analytical` — exact solution at every timestep (when available)
-  - `h_error`, `u_error` — pointwise numerical minus analytical error fields
-  - `l1_h`, `l2_h`, `l1_u`, `l2_u` — integrated error norms at each timestep
-- **PNG**:
-  - `<case>_time_evolution.png` — snapshot overlay at saved times
-  - `<case>_physical.png` — depth, velocity, Froude, specific energy
-  - `<case>_numerical.png` — celerity, $\Delta t$ range, CFL stats, mass error
-- **GIF**: `<case>.gif` — animated evolution with dam reference line and parameter subtitle
-- **Log**: `logs/<case>.log` — full run log
+For each case, amerta generates:
+- `<case>.nc` — CF-1.8 NetCDF4, full trajectory at every timestep including all error norms
+- `<case>_metrics.csv` — scalar diagnostics
+- `comparison_metrics.csv` — side-by-side comparison across all runs
+- `<case>_time_evolution.png`, `<case>_physical.png`, `<case>_numerical.png`
+- `<case>.gif` — animated evolution
 
 ## Dependencies
 
-- **numpy** >= 1.20.0
-- **scipy** >= 1.7.0
-- **matplotlib** >= 3.3.0
-- **pandas** >= 1.3.0
-- **netCDF4** >= 1.5.0
-- **numba** >= 0.53.0
-- **Pillow** >= 8.0.0
-- **tqdm** >= 4.60.0
-
-## Changelog
-
-### v0.0.3
-- **Bug fix (`solver.py`)**: `u_all[0]` and `anim_u[0]` now correctly store the actual
-  initial velocity field `u0` instead of `np.zeros(nx)`. Previously, all cases with
-  nonzero initial velocities (double rarefaction: $u_L=-3$, $u_R=+3$; double shock:
-  $u_L=+3$, $u_R=-3$) produced a spurious $L_1(u)|_{t=0} \approx 6000\ \text{m}^2/\text{s}$,
-  contaminating the entire error-norm time series and the NetCDF `u` field at `t=0`.
-- **Bug fix (`analytical.py`)**: `_ritter_at_t` now accepts `h_right` and uses it on the
-  right side of the dam at $t=0$, so the analytical initial condition exactly matches the
-  numerical IC. Previously $L_1(h)|_{t=0} \approx 1.0\ \text{m}$ for the Ritter case
-  because the analytical IC had $h_R = 0$ while the config used $h_R = 10^{-3}\ \text{m}$.
-  The `_DISPATCH` table is updated accordingly. For $t > 0$ the exact dry-front formula
-  ($h = 0$ ahead of the wave) is unchanged.
-- **New tests**: `TestSolver.test_ic_velocity_stored_correctly_nonzero`,
-  `test_ic_velocity_double_shock`, `test_anim_u_ic_nonzero`,
-  `TestAnalytical.test_ritter_ic_h_exact`, `test_double_rarefaction_ic_u_exact`,
-  `test_double_shock_ic_u_exact`, `TestNetCDF.test_netcdf_u_ic_correct` — all
-  specifically target the above bugs and would have caught them in v0.0.2.
-- Version string updated to `0.0.3` in `__init__.py`, `cli.py`, `data_handler.py`,
-  `pyproject.toml`.
-
-### v0.0.2
-- Added `analytical.py`: exact solutions for all four canonical Riemann cases (Ritter closed-form, Stoker Newton, double rarefaction closed-form, double shock Newton)
-- NetCDF output now stores the full animation-frame trajectory (`h_anim`, `u_anim`, `q_anim`) in addition to snapshots
-- Analytical fields (`h_analytical`, `u_analytical`), error fields (`h_error`, `u_error`), and integrated L1/L2 norms written to NetCDF at both snapshot and animation-frame time axes
-- Extended test suite with `TestAnalytical` class covering shape, norm finiteness, and IC correctness
-
-### v0.0.1
-- Initial release
+numpy ≥ 1.20, scipy ≥ 1.7, matplotlib ≥ 3.3, netCDF4 ≥ 1.5, numba ≥ 0.53, pandas ≥ 1.3, pillow ≥ 8.0, tqdm ≥ 4.60
 
 ## License
 

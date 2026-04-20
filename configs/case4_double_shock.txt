@@ -1,6 +1,4 @@
 # Case 4: Symmetric double shock
-# Physical scenario: two converging flood waves at river confluence
-# hL=hR=3m, uL=+3m/s, uR=-3m/s (converging), L=2000m, t=80s
 scenario_name = Case 4 - Double Shock
 case_type = double_shock
 g = 9.81

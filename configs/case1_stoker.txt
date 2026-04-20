@@ -1,6 +1,4 @@
 # Case 1: Stoker (1957) wet-bed dam break
-# Physical scenario: river embankment failure, Java river valley
-# hL=10m (full reservoir), hR=2m (river), L=2000m, t=80s
 scenario_name = Case 1 - Stoker Wet Dam Break
 case_type = stoker
 g = 9.81

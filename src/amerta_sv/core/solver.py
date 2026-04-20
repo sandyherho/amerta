@@ -8,13 +8,6 @@ Conservation diagnostics tracked at every timestep
     momentum_all    : integral of q=hu over domain [m³/s]
     energy_all      : integral of (½u²h + ½gh²) over domain [m³/s²·m = m³/s²]
     froude_max_all  : max(|u|/sqrt(gh)) masked to h > h_dry [dimensionless]
-
-Changelog
----------
-v0.0.3 — Bug fix: u_all[0] now correctly stores the actual initial velocity
-         field u0 instead of an all-zero array.  Previously, cases with
-         nonzero initial velocity (double rarefaction, double shock) showed
-         a spurious L1(u) error of O(n_x * |u0| * dx) at t=0.
 """
 import os
 import numpy as np
@@ -32,7 +25,7 @@ except ImportError:
     prange = range
     def set_num_threads(n): pass
 
-H_DRY = 1e-2   # depth threshold below which Fr is masked [m]
+H_DRY = 1e-2
 
 
 @njit(cache=True)
@@ -133,13 +126,11 @@ def compute_dt(h, q, dx, cfl, g):
 
 
 def _conservation_diagnostics(h, q, dx, g, mass0):
-    """Compute scalar conservation metrics for one timestep."""
     mass     = float(np.sum(h) * dx)
     momentum = float(np.sum(q) * dx)
     u_       = np.where(h > H_DRY, q / h, 0.0)
     energy   = float(np.sum(0.5 * u_**2 * h + 0.5 * g * h**2) * dx)
     mass_err = (mass - mass0) / mass0 * 100.0
-    # Froude: masked where h < H_DRY
     c_       = np.sqrt(g * np.maximum(h, H_DRY))
     Fr_      = np.where(h > H_DRY, np.abs(u_) / c_, np.nan)
     fr_max   = float(np.nanmax(Fr_))
@@ -147,18 +138,7 @@ def _conservation_diagnostics(h, q, dx, g, mass0):
 
 
 class SaintVenantSolver:
-    """1D Saint-Venant solver: MUSCL-HLLC + SSP-RK2.
-
-    Full trajectory (every timestep) stored in h_all/u_all/q_all/t_all.
-    Conservation diagnostics tracked at every step.
-
-    Bug fixes in v0.0.3
-    -------------------
-    u_all[0] previously stored np.zeros(nx) regardless of the initial
-    velocity field.  It now stores u0.copy() — the actual cell-averaged
-    initial velocities — so that L1/L2(u) errors at t=0 are exactly zero
-    for all four canonical cases.
-    """
+    """1D Saint-Venant solver: MUSCL-HLLC + SSP-RK2."""
 
     def __init__(self, nthreads=None, verbose=True, logger=None):
         self.verbose = verbose; self.logger = logger
@@ -197,27 +177,20 @@ class SaintVenantSolver:
         e0 = float(np.sum(0.5*u0**2*h + 0.5*g*h**2)*dx)
         m0_mom = float(np.sum(q)*dx)
 
-        # ── trajectory ────────────────────────────────────────────────────
-        # v0.0.3 fix: u_all[0] = u0.copy() instead of np.zeros(nx).
-        # Previously the initial velocity snapshot was silently all-zero,
-        # causing a large spurious L1(u) error at t=0 for cases with
-        # nonzero initial velocities (double rarefaction, double shock).
         t_all   = [0.0]
         h_all   = [h.copy()]
-        u_all   = [u0.copy()]          # FIX: was [np.zeros(nx)]
+        u_all   = [u0.copy()]
         q_all   = [q.copy()]
 
-        # ── conservation diagnostics ──────────────────────────────────────
         mass_all        = [mass0]
         mass_err_pct_all= [0.0]
         momentum_all    = [m0_mom]
         energy_all      = [e0]
         froude_max_all  = [0.0]
 
-        # ── anim subsampling (GIF only) ───────────────────────────────────
         anim_dt    = t_final / max(anim_frames-1, 1)
         next_anim  = anim_dt
-        anim_h     = [h.copy()]; anim_u = [u0.copy()]   # FIX: was [np.zeros(nx)]
+        anim_h     = [h.copy()]; anim_u = [u0.copy()]
         anim_q     = [q.copy()]; anim_times = [0.0]
 
         t = 0.0; step = 0
@@ -244,13 +217,11 @@ class SaintVenantSolver:
 
             u_now = np.where(h > 1e-8, q/h, 0.0)
 
-            # full trajectory
             t_all.append(t)
             h_all.append(h.copy())
             u_all.append(u_now.copy())
             q_all.append(q.copy())
 
-            # conservation diagnostics
             mass, merr, mom, eng, frmax = _conservation_diagnostics(h, q, dx, g, mass0)
             mass_all.append(mass)
             mass_err_pct_all.append(merr)
@@ -258,7 +229,6 @@ class SaintVenantSolver:
             energy_all.append(eng)
             froude_max_all.append(frmax)
 
-            # anim subsample
             if t >= next_anim - 1e-12:
                 anim_h.append(h.copy()); anim_u.append(u_now.copy())
                 anim_q.append(q.copy()); anim_times.append(t)
@@ -279,24 +249,20 @@ class SaintVenantSolver:
 
         return {
             'x': x, 'dx': dx, 'params': params,
-            # full trajectory
             't_all'          : np.array(t_all),
             'h_all'          : np.array(h_all),
             'u_all'          : np.array(u_all),
             'q_all'          : np.array(q_all),
-            # conservation diagnostics (one value per timestep)
             'mass_all'       : np.array(mass_all),
             'mass_err_pct_all': np.array(mass_err_pct_all),
             'momentum_all'   : np.array(momentum_all),
             'energy_all'     : np.array(energy_all),
             'froude_max_all' : np.array(froude_max_all),
             'energy_initial' : e0,
-            # anim subsampling
             'anim_times'     : np.array(anim_times),
             'anim_h'         : np.array(anim_h),
             'anim_u'         : np.array(anim_u),
             'anim_q'         : np.array(anim_q),
-            # scalar diagnostics
             'n_steps'        : step,
             'dt_min'         : dt_min,   'dt_max'  : dt_max,
             'cfl_max'        : float(np.max(cfls)),

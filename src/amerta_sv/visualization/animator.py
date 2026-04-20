@@ -1,6 +1,6 @@
 """
-Saint-Venant 1D visualization.
-Dark-themed figures + GIF animation matching the original solver's aesthetic.
+Saint-Venant 1D visualization — v0.0.4.
+Dark-themed figures + GIF animation.
 """
 import numpy as np
 import matplotlib
@@ -10,7 +10,6 @@ from matplotlib import animation
 from pathlib import Path
 from tqdm import tqdm
 
-# Dark theme palette (consistent with original saint_venant_1d.py)
 BG     = '#0d1b2a'
 PANEL  = '#1b263b'
 EDGE   = '#415a77'
@@ -121,8 +120,7 @@ class Animator:
         return str(fp)
 
     @staticmethod
-    def create_gif(result, filename, output_dir, scenario_name,
-                   fps=15, dpi=110):
+    def create_gif(result, filename, output_dir, scenario_name, fps=15, dpi=110):
         out = Path(output_dir); out.mkdir(parents=True, exist_ok=True)
         fp = out / filename
         x = result['x']; H = result['anim_h']; U = result['anim_u']; T = result['anim_times']

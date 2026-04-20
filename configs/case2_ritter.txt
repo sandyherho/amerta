@@ -1,6 +1,4 @@
 # Case 2: Ritter (1892) dry-bed dam break
-# Physical scenario: flash flood onto dry coastal plain (Maritime Continent)
-# hL=10m (embankment reservoir), near-dry downstream, L=2000m, t=40s
 scenario_name = Case 2 - Ritter Dry Dam Break
 case_type = ritter
 g = 9.81

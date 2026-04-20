@@ -1,6 +1,4 @@
 # Case 3: Symmetric double rarefaction
-# Physical scenario: sluice gate opening in irrigation canal (diverging flow)
-# hL=hR=5m, uL=-3m/s, uR=+3m/s (diverging), L=2000m, t=80s
 scenario_name = Case 3 - Double Rarefaction
 case_type = double_rarefaction
 g = 9.81

@@ -1,4 +1,4 @@
-"""Simulation logger."""
+"""Simulation logger — v0.0.4."""
 import logging
 import numpy as np
 from pathlib import Path
@@ -48,12 +48,18 @@ class SimulationLogger:
 
     def log_error_summary(self, analytical, t_all):
         """
-        Log L1/L2 error norms at every timestep and a final summary.
+        Log all error norms at every timestep plus a final summary.
 
-        Parameters
-        ----------
-        analytical : dict  – output of compute_analytical + fill_error_norms
-        t_all      : array – solver time axis (same length as norm arrays)
+        v0.0.3 norms (always shown): L1/L2(h), L1/L2(u)
+        v0.0.4 norms (always shown): L1/L2(q), L1/L2(u_wet)
+
+        Note on L1(u) for dry-bed cases (Ritter)
+        -----------------------------------------
+        L1(u) may be very large near the dry front because u_num = q/h
+        diverges as h → h_floor (1e-8 m) while u_analytical = 0 exactly.
+        This is an artifact of the positivity floor, NOT a flow inaccuracy.
+        Use L1(q) as the primary momentum metric and L1(u_wet) for wet-region
+        velocity accuracy.
         """
         self.info("="*60)
         self.info("ANALYTICAL ERROR NORMS")
@@ -64,28 +70,53 @@ class SimulationLogger:
             self.info("="*60)
             return
 
-        l1_h = analytical['l1_h']
-        l2_h = analytical['l2_h']
-        l1_u = analytical['l1_u']
-        l2_u = analytical['l2_u']
+        l1_h     = analytical['l1_h']
+        l2_h     = analytical['l2_h']
+        l1_u     = analytical['l1_u']
+        l2_u     = analytical['l2_u']
+        l1_q     = analytical['l1_q']
+        l2_q     = analytical['l2_q']
+        l1_u_wet = analytical['l1_u_wet']
+        l2_u_wet = analytical['l2_u_wet']
 
-        self.info(f"  {'t [s]':>10}  {'L1(h) [m]':>14}  {'L2(h) [m]':>14}"
-                  f"  {'L1(u) [m/s]':>14}  {'L2(u) [m/s]':>14}")
-        self.info(f"  {'-'*10}  {'-'*14}  {'-'*14}  {'-'*14}  {'-'*14}")
+        # ── per-timestep table ────────────────────────────────────────────
+        hdr = (f"  {'t [s]':>10}  {'L1(h) [m]':>14}  {'L2(h) [m]':>14}"
+               f"  {'L1(u) [m/s]':>14}  {'L2(u) [m/s]':>14}"
+               f"  {'L1(q)[m2/s]':>14}  {'L2(q)[m2/s]':>14}"
+               f"  {'L1(u_wet)':>14}  {'L2(u_wet)':>14}")
+        sep  = f"  {'-'*10}  {'-'*14}  {'-'*14}  {'-'*14}  {'-'*14}  {'-'*14}  {'-'*14}  {'-'*14}  {'-'*14}"
+        self.info(hdr)
+        self.info(sep)
 
         for i, t in enumerate(t_all):
-            self.info(f"  {t:>10.4f}  {l1_h[i]:>14.6e}  {l2_h[i]:>14.6e}"
-                      f"  {l1_u[i]:>14.6e}  {l2_u[i]:>14.6e}")
+            self.info(
+                f"  {t:>10.4f}"
+                f"  {l1_h[i]:>14.6e}  {l2_h[i]:>14.6e}"
+                f"  {l1_u[i]:>14.6e}  {l2_u[i]:>14.6e}"
+                f"  {l1_q[i]:>14.6e}  {l2_q[i]:>14.6e}"
+                f"  {l1_u_wet[i]:>14.6e}  {l2_u_wet[i]:>14.6e}"
+            )
 
+        # ── final summary ─────────────────────────────────────────────────
         self.info("="*60)
         self.info("SUMMARY (final timestep)")
         self.info("="*60)
+        self.info(f"  --- v0.0.3 norms (depth / raw velocity) ---")
         self.info(f"  L1(h)  = {l1_h[-1]:.6e} m")
         self.info(f"  L2(h)  = {l2_h[-1]:.6e} m")
-        self.info(f"  L1(u)  = {l1_u[-1]:.6e} m/s")
+        self.info(f"  L1(u)  = {l1_u[-1]:.6e} m/s"
+                  f"  [NOTE: may be inflated near dry front — see L1(u_wet)]")
         self.info(f"  L2(u)  = {l2_u[-1]:.6e} m/s")
-        self.info(f"  max L1(h) over all t = {float(np.max(l1_h)):.6e} m")
-        self.info(f"  max L2(h) over all t = {float(np.max(l2_h)):.6e} m")
+        self.info(f"  --- v0.0.4 norms (discharge / wet-cell velocity) ---")
+        self.info(f"  L1(q)      = {l1_q[-1]:.6e} m2/s  [recommended primary momentum metric]")
+        self.info(f"  L2(q)      = {l2_q[-1]:.6e} m2/s")
+        self.info(f"  L1(u_wet)  = {l1_u_wet[-1]:.6e} m/s  [wet cells only, h > 0.01 m]")
+        self.info(f"  L2(u_wet)  = {l2_u_wet[-1]:.6e} m/s")
+        self.info(f"  --- envelope maxima ---")
+        self.info(f"  max L1(h)     over all t = {float(np.max(l1_h)):.6e} m")
+        self.info(f"  max L2(h)     over all t = {float(np.max(l2_h)):.6e} m")
+        self.info(f"  max L1(q)     over all t = {float(np.max(l1_q)):.6e} m2/s")
+        self.info(f"  max L1(u_wet) over all t = {float(np.max(l1_u_wet)):.6e} m/s")
         self.info("="*60)
 
     def finalize(self):
