@@ -9,25 +9,10 @@ double_rarefaction: symmetric diverging flow – closed form
 double_shock      : symmetric converging flow – Newton on h*
 
 All solvers work in similarity coordinates  ξ = (x − x_dam) / t
-and vectorise over (x, t) arrays.
+and vectorize over (x, t) arrays.
 
 Error norm dictionary (returned by compute_analytical, filled by fill_error_norms)
------------------------------------------------------------------------------------
-v0.0.3 standard norms (unchanged — all existing tests still pass):
-    l1_h, l2_h  : L1/L2 depth error  [m]
-    l1_u, l2_u  : L1/L2 velocity error  [m/s]
 
-v0.0.4 additional norms:
-    l1_q, l2_q      : L1/L2 specific-discharge error  [m²/s]
-                      q = hu is the actual conserved variable; this norm is
-                      well-behaved for dry-bed cases where L1(u) diverges.
-    l1_u_wet, l2_u_wet : L1/L2 velocity error restricted to wet cells
-                      (h_num > H_DRY AND h_an > H_DRY, H_DRY = 0.01 m).
-                      Removes the near-dry-front singularity from Ritter
-                      without discarding meaningful wet-region accuracy.
-
-Recommended primary metrics for cross-case comparison
-------------------------------------------------------
     depth   : l1_h, l2_h
     momentum: l1_q, l2_q          ← use instead of l1_u for Ritter
     velocity: l1_u_wet, l2_u_wet  ← supplementary, wet region only

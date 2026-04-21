@@ -18,21 +18,6 @@ Conservation diagnostics  (time,)
     energy_integral     domain-integrated total specific energy [m³/s²]
     energy_diss_pct     cumulative energy dissipation vs initial [%]
     froude_max          max Froude number (h > H_DRY = 0.01 m only) [-]
-
-v0.0.3 error norms (when analytical solution available)
-    h_analytical (time,x)   exact depth [m]
-    u_analytical (time,x)   exact velocity [m/s]
-    h_error      (time,x)   h - h_analytical [m]
-    u_error      (time,x)   u - u_analytical [m/s]
-    l1_h, l2_h   (time,)    depth L1/L2 error norms [m]
-    l1_u, l2_u   (time,)    velocity L1/L2 error norms [m/s]
-
-v0.0.4 error norms (new — when analytical solution available)
-    l1_q, l2_q       (time,)  discharge L1/L2 error norms [m²/s]
-                              q=hu is the conserved variable; well-behaved
-                              for dry-bed cases where l1_u diverges.
-    l1_u_wet, l2_u_wet (time,) wet-cell velocity L1/L2 norms [m/s]
-                              restricted to cells with h>H_DRY on both sides.
 """
 import numpy as np
 import pandas as pd
